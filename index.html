@@ -1,0 +1,1196 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>TTL Game Bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: datasheet-paper workbench; left = Verilog editor, right = a dark acrylic game console with real LEDs and 7-segment digits. */
+:root {
+  --paper: #f4f6f3; --sheet: #ffffff; --ink: #18201c; --muted: #58625d; --rule: #d3d9d4;
+  --accent: #0b6b4c; --accent-ink: #ffffff; --warn: #8a5a00; --err: #b3261e; --err-bg: #fbeceb; --warn-bg: #fdf4e3;
+  --panel: #1b201e; --panel-2: #262d2a; --panel-ink: #d9e2dd; --panel-muted: #8a9690; --panel-rule: #37403c;
+  --led-red: #ff3b2f; --led-green: #39e26f; --led-amber: #ffb020; --seg-on: #ff3b2f; --seg-off: #3a2422;
+  --code-bg: #fbfcfa; --gutter: #eef1ee; --focus: #1a73e8;
+  --f-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #111513; --sheet: #171c1a; --ink: #e3e9e5; --muted: #9aa59f; --rule: #2b3330;
+  --accent: #4cc292; --accent-ink: #0b1a13; --warn: #f0b44c; --err: #ff8a80; --err-bg: #2d1715; --warn-bg: #2b2210;
+  --panel: #0c0f0e; --panel-2: #161b19; --panel-rule: #2a322f; --code-bg: #131816; --gutter: #1a201d; --focus: #8ab4f8;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #111513; --sheet: #171c1a; --ink: #e3e9e5; --muted: #9aa59f; --rule: #2b3330;
+  --accent: #4cc292; --accent-ink: #0b1a13; --warn: #f0b44c; --err: #ff8a80; --err-bg: #2d1715; --warn-bg: #2b2210;
+  --panel: #0c0f0e; --panel-2: #161b19; --panel-rule: #2a322f; --code-bg: #131816; --gutter: #1a201d; --focus: #8ab4f8;
+  color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--paper); color: var(--ink); font: 15px/1.5 var(--f-body); }
+.wrap { max-width: 1280px; margin: 0 auto; padding-inline: 20px; padding-block: 20px 48px; display: grid; gap: 18px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; }
+h1 { font: 700 34px/1 var(--f-display); letter-spacing: .01em; margin: 0; text-transform: uppercase; }
+h1 span { color: var(--accent); }
+.sub { color: var(--muted); margin: 0; }
+h2 { font: 600 20px/1.2 var(--f-display); text-transform: uppercase; letter-spacing: .04em; margin: 0; }
+h3 { font: 600 16px/1.2 var(--f-display); text-transform: uppercase; letter-spacing: .05em; margin: 0; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--rule); }
+.tab { appearance: none; border: 1px solid transparent; border-bottom: none; background: none; color: var(--muted);
+  font: 600 17px/1 var(--f-display); text-transform: uppercase; letter-spacing: .04em; padding: 10px 14px 9px; cursor: pointer;
+  border-radius: 6px 6px 0 0; display: flex; gap: 8px; align-items: center; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--ink); background: var(--sheet); border-color: var(--rule); }
+.tab:focus-visible, button:focus-visible, textarea:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.pips { display: inline-flex; gap: 2px; }
+.pips i { width: 6px; height: 6px; border-radius: 50%; background: var(--rule); display: block; }
+.pips i.on { background: var(--accent); }
+.main { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 14px; display: grid; gap: 10px; min-width: 0; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bar .grow { flex: 1; }
+.btn { appearance: none; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); border-radius: 6px;
+  padding: 7px 12px; font: 500 14px/1 var(--f-body); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn:disabled { opacity: .5; cursor: default; }
+kbd { font: 500 12px/1 var(--f-mono); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; background: var(--paper); color: var(--ink); }
+.editor { display: grid; grid-template-columns: auto minmax(0, 1fr); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: var(--code-bg); height: 460px; }
+.gutter { background: var(--gutter); color: var(--muted); font: 13px/20px var(--f-mono); text-align: right; padding: 8px 8px 8px 10px; overflow: hidden; user-select: none; white-space: pre; }
+.gutter .bad { color: var(--err); font-weight: 600; }
+textarea#code { border: 0; resize: none; background: transparent; color: var(--ink); font: 13px/20px var(--f-mono); padding: 8px 10px; white-space: pre; overflow: auto; tab-size: 2; height: 100%; width: 100%; outline: none; }
+.msgs { display: grid; gap: 6px; font-size: 14px; }
+.msg { border-radius: 6px; padding: 8px 10px; display: flex; gap: 8px; align-items: baseline; }
+.msg.err { background: var(--err-bg); color: var(--err); }
+.msg.warn { background: var(--warn-bg); color: var(--warn); }
+.msg.ok { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+.msg b { font-family: var(--f-mono); font-weight: 500; white-space: nowrap; }
+.msg button { appearance: none; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
+.msg span { min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
+/* console */
+.console { background: var(--panel); color: var(--panel-ink); border-radius: 12px; padding: 16px; display: grid; gap: 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 1px 2px rgba(0,0,0,.25); }
+.console:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.c-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.c-title { font: 600 15px/1 var(--f-display); letter-spacing: .14em; text-transform: uppercase; color: var(--panel-muted); }
+.status { font: 12px/1.2 var(--f-mono); color: var(--panel-muted); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.face { background: var(--panel-2); border: 1px solid var(--panel-rule); border-radius: 10px; padding: 18px 14px; display: grid; gap: 18px; justify-items: center; min-height: 230px; align-content: center; position: relative; }
+.face.off::after { content: attr(data-msg); position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; background: color-mix(in srgb, var(--panel-2) 88%, transparent); color: var(--panel-muted); font: 500 14px/1.4 var(--f-body); border-radius: 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; justify-content: center; }
+.led { display: grid; justify-items: center; gap: 6px; font: 600 13px/1 var(--f-display); letter-spacing: .08em; color: var(--panel-muted); text-transform: uppercase; }
+.led i { width: 22px; height: 22px; border-radius: 50%; display: block; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), transparent 60%), color-mix(in srgb, var(--c) 18%, #111); border: 1px solid #000; transition: background-color .03s; }
+.led.on i { background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.7), transparent 55%), var(--c); box-shadow: 0 0 10px 2px color-mix(in srgb, var(--c) 70%, transparent), 0 0 24px color-mix(in srgb, var(--c) 40%, transparent); }
+.led.target i { outline: 2px dashed var(--panel-muted); outline-offset: 4px; }
+.digit { display: grid; justify-items: center; gap: 6px; font: 600 13px/1 var(--f-display); letter-spacing: .08em; color: var(--panel-muted); text-transform: uppercase; }
+.digit svg { width: 64px; height: 108px; background: #120d0c; border-radius: 6px; border: 1px solid #000; padding: 4px; }
+.digit .s { fill: var(--seg-off); }
+.digit .s.on { fill: var(--seg-on); filter: drop-shadow(0 0 3px var(--seg-on)); }
+.ctl { display: grid; justify-items: center; gap: 6px; font: 600 13px/1 var(--f-display); letter-spacing: .08em; color: var(--panel-muted); text-transform: uppercase; }
+.key { appearance: none; min-width: 52px; height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #000; cursor: pointer;
+  background: linear-gradient(#4a524e, #343b38); color: #eef3f0; font: 600 16px/1 var(--f-mono); box-shadow: 0 3px 0 #0b0d0c; touch-action: none; user-select: none; }
+.key.down { transform: translateY(2px); box-shadow: 0 1px 0 #0b0d0c; background: linear-gradient(#3b423f, #2b312f); }
+.switch { appearance: none; width: 30px; height: 48px; border-radius: 6px; background: #0e1110; border: 1px solid #000; position: relative; cursor: pointer; padding: 0; }
+.switch::after { content: ""; position: absolute; left: 4px; right: 4px; height: 20px; bottom: 4px; border-radius: 4px; background: linear-gradient(#cfd6d2, #8d9692); transition: bottom .08s; }
+.switch.on::after { bottom: 22px; }
+.switch small { position: absolute; top: -18px; left: 0; right: 0; font: 500 11px/1 var(--f-mono); color: var(--panel-muted); }
+.clock { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font: 13px/1 var(--f-body); color: var(--panel-muted); }
+.clock .btn { background: var(--panel-2); color: var(--panel-ink); border-color: var(--panel-rule); }
+.clock input[type=range] { width: 130px; accent-color: var(--led-amber); }
+.clk-led { width: 10px; height: 10px; border-radius: 50%; background: #3a2d10; display: inline-block; }
+.clk-led.on { background: var(--led-amber); box-shadow: 0 0 6px var(--led-amber); }
+.keys-hint { font-size: 13px; color: var(--panel-muted); display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.keys-hint kbd { background: var(--panel-2); color: var(--panel-ink); border-color: var(--panel-rule); }
+/* rules + ref */
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+ol.rules { margin: 0; padding-left: 22px; display: grid; gap: 4px; max-width: 70ch; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font: 600 13px/1.2 var(--f-display); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+td code, .mono { font-family: var(--f-mono); font-size: 13px; }
+.tablebox { overflow-x: auto; }
+details.chip { border-bottom: 1px solid var(--rule); padding: 6px 0; }
+details.chip summary { cursor: pointer; display: flex; gap: 10px; align-items: baseline; }
+details.chip summary b { font-family: var(--f-mono); font-weight: 500; min-width: 72px; }
+details.chip summary span { color: var(--muted); font-size: 14px; }
+.pinlist { font: 13px/1.6 var(--f-mono); margin: 6px 0 4px; overflow-wrap: anywhere; }
+.pinlist em { font-style: normal; color: var(--muted); }
+pre.code { background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 10px; font: 12px/1.5 var(--f-mono); overflow: auto; max-height: 320px; margin: 0; }
+.note { color: var(--muted); font-size: 14px; max-width: 75ch; margin: 0; }
+/* debug */
+.watch { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chipx { font: 12px/1 var(--f-mono); border: 1px solid var(--rule); border-radius: 999px; padding: 4px 4px 4px 9px; display: inline-flex; gap: 4px; align-items: center; }
+.chipx button { appearance: none; border: 0; background: none; color: var(--muted); cursor: pointer; font: inherit; padding: 0 4px; }
+.wave { width: 100%; display: block; }
+.wavebox { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; background: var(--code-bg); }
+select, input[type=text] { font: 13px var(--f-mono); padding: 6px 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--sheet); color: var(--ink); max-width: 100%; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>TTL <span>Game</span> Bench</h1>
+    <p class="sub">Wire 74xx chips in Verilog, then play the game you built. F215 Digital Design. <a href="https://github.com/pkt5/verilog-ttl-games">Source on GitHub</a></p>
+  </header>
+
+  <nav class="tabs" role="tablist" id="tabs" aria-label="Games"></nav>
+
+  <div class="main">
+    <section class="card" aria-labelledby="ed-h">
+      <div class="bar">
+        <h2 id="ed-h" class="grow">Your circuit</h2>
+        <label class="btn" for="file">Open .v file</label>
+        <input type="file" id="file" accept=".v,.sv,.txt" hidden>
+        <button class="btn" id="tpl">Start from template</button>
+        <button class="btn primary" id="build" title="Ctrl+Enter">Build &amp; play</button>
+      </div>
+      <div class="editor">
+        <div class="gutter" id="gutter" aria-hidden="true">1</div>
+        <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Verilog source"></textarea>
+      </div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+    </section>
+
+    <section class="console" id="console" tabindex="0" aria-label="Game console. Focus here and use the keys shown.">
+      <div class="c-head">
+        <span class="c-title" id="c-title">Console</span>
+        <span class="status"><span><span class="clk-led" id="clkled"></span> clk</span><span id="tickc">tick 0</span><span id="chipc"></span></span>
+      </div>
+      <div class="face off" id="face" data-msg="Build your circuit to switch the console on."></div>
+      <div class="clock">
+        <button class="btn" id="run">Pause</button>
+        <button class="btn" id="step" title="One clock tick">Step</button>
+        <button class="btn" id="rst">New round (R)</button>
+        <button class="btn" id="clr">Clear all (C)</button>
+        <label for="hz">Clock</label>
+        <input type="range" id="hz" min="1" max="30" step="1" value="4">
+        <span id="hzv" class="mono">4 Hz</span>
+      </div>
+      <div class="keys-hint" id="keyshint"></div>
+    </section>
+  </div>
+
+  <div class="cols">
+    <section class="card" aria-labelledby="rules-h">
+      <h2 id="rules-h">Rules</h2>
+      <ol class="rules" id="rules"></ol>
+      <h3>Ports</h3>
+      <div class="tablebox"><table id="ports"></table></div>
+      <p class="note">The page drives <code class="mono">clk</code> from its clock and holds <code class="mono">rst_n</code> at 0 while R is down, and both <code class="mono">rst_n</code> and <code class="mono">clr_n</code> at 0 while C is down (each for at least 3 ticks, and both when the console switches on). A key press is held until at least one rising clock edge has seen it. LEDs light on 1. Segment outputs <code class="mono">a</code>–<code class="mono">g</code> drive a common-anode display, so a segment lights on 0 (connect them straight from a 7447).</p>
+    </section>
+
+    <section class="card" aria-labelledby="dbg-h">
+      <h2 id="dbg-h">Probe wires</h2>
+      <p class="note">Pick any wire in your circuit to watch it. Traces show the last 48 clock half-periods, newest on the right.</p>
+      <div class="watch">
+        <select id="netpick" aria-label="Wire to watch"><option value="">Build first</option></select>
+        <button class="btn" id="addw">Watch</button>
+        <span id="wlist" class="watch"></span>
+      </div>
+      <div class="wavebox"><canvas class="wave" id="wave" height="60"></canvas></div>
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="lib-h">
+    <div class="bar"><h2 id="lib-h" class="grow">Chip library</h2><button class="btn" id="copychips">Copy chips.v</button></div>
+    <p class="note">These are the only modules you may use. Connect pins by name, like <code class="mono">.A1(x)</code>. Every input pin must be connected; tie unused ones to <code class="mono">1'b0</code> or <code class="mono">1'b1</code>. Unused outputs can be left out. Pins ending in <code class="mono">_n</code> are active low. To test in iverilog, compile your file together with chips.v.</p>
+    <div id="chiplist"></div>
+    <details><summary>Show chips.v</summary><pre class="code" id="chipsv"></pre></details>
+  </section>
+</div>
+
+<script>
+// Chip-level Verilog parser, checker and simulator for the F215 game lab.
+// Works in the browser (window.GameEngine) and in node (module.exports).
+(function (root) {
+  'use strict';
+
+  // ---------- chip models (must match chips.v) ----------
+  const b = (s, k) => (s >> k) & 1;
+  const rise = (p, i, k) => !p[k] && i[k];
+  const fall = (p, i, k) => p[k] && !i[k];
+  const gates = (fn, n) => {
+    const ins = [], outs = [];
+    for (let k = 1; k <= n; k++) { ins.push('A' + k, 'B' + k); outs.push('Y' + k); }
+    return { ins, outs, comb(i) { const o = {}; for (let k = 1; k <= n; k++) o['Y' + k] = fn(i['A' + k], i['B' + k]); return o; } };
+  };
+  const SEG = [0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0x1F, 0x70, 0x7F, 0x73, 0x0D, 0x19, 0x23, 0x4B, 0x0F, 0x00];
+  // one D or JK flip-flop half: returns forced/next bit or -1 for "keep"
+  const ffHalf = (i, p, s, n, edge, next) => {
+    if (!i['CLR' + n + '_n']) return 0;
+    if (!i['PRE' + n + '_n']) return 1;
+    if (edge(p, i, 'CLK' + n)) return next(b(s, n - 1));
+    return -1;
+  };
+  const pack = (pairs) => { let m = 0, v = 0; for (const [k, x] of pairs) if (x >= 0) { m |= 1 << k; v |= x << k; } return m ? [m, v] : null; };
+
+  const CHIPS = {
+    ic7400: Object.assign(gates((a, c) => 1 - (a & c), 4), { desc: 'Quad 2-input NAND' }),
+    ic7402: Object.assign(gates((a, c) => 1 - (a | c), 4), { desc: 'Quad 2-input NOR' }),
+    ic7408: Object.assign(gates((a, c) => a & c, 4), { desc: 'Quad 2-input AND' }),
+    ic7432: Object.assign(gates((a, c) => a | c, 4), { desc: 'Quad 2-input OR' }),
+    ic7486: Object.assign(gates((a, c) => a ^ c, 4), { desc: 'Quad 2-input XOR' }),
+    ic7404: {
+      desc: 'Hex inverter',
+      ins: ['A1', 'A2', 'A3', 'A4', 'A5', 'A6'], outs: ['Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'],
+      comb(i) { const o = {}; for (let k = 1; k <= 6; k++) o['Y' + k] = 1 - i['A' + k]; return o; }
+    },
+    ic7410: {
+      desc: 'Triple 3-input NAND',
+      ins: ['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3', 'C3'], outs: ['Y1', 'Y2', 'Y3'],
+      comb(i) { const o = {}; for (let k = 1; k <= 3; k++) o['Y' + k] = 1 - (i['A' + k] & i['B' + k] & i['C' + k]); return o; }
+    },
+    ic7474: {
+      desc: 'Dual D flip-flop, rising edge, async preset/clear (active low)', seq: true,
+      ins: ['D1', 'CLK1', 'PRE1_n', 'CLR1_n', 'D2', 'CLK2', 'PRE2_n', 'CLR2_n'], outs: ['Q1', 'Q1_n', 'Q2', 'Q2_n'],
+      seq(i, p, s) {
+        return pack([[0, ffHalf(i, p, s, 1, rise, () => i.D1)], [1, ffHalf(i, p, s, 2, rise, () => i.D2)]]);
+      },
+      comb(i, s) { return { Q1: b(s, 0), Q1_n: 1 - b(s, 0), Q2: b(s, 1), Q2_n: 1 - b(s, 1) }; }
+    },
+    ic74112: {
+      desc: 'Dual JK flip-flop, falling edge, async preset/clear (active low)', seq: true,
+      ins: ['J1', 'K1', 'CLK1', 'PRE1_n', 'CLR1_n', 'J2', 'K2', 'CLK2', 'PRE2_n', 'CLR2_n'], outs: ['Q1', 'Q1_n', 'Q2', 'Q2_n'],
+      seq(i, p, s) {
+        const jk = (j, k) => (q) => (j & (1 - q)) | ((1 - k) & q);
+        return pack([[0, ffHalf(i, p, s, 1, fall, jk(i.J1, i.K1))], [1, ffHalf(i, p, s, 2, fall, jk(i.J2, i.K2))]]);
+      },
+      comb(i, s) { return { Q1: b(s, 0), Q1_n: 1 - b(s, 0), Q2: b(s, 1), Q2_n: 1 - b(s, 1) }; }
+    },
+    ic7493: {
+      desc: '4-bit ripple counter (QA on CKA_n fall; QB-QD on CKB_n fall; reset when R01=R02=1)', seq: true,
+      ins: ['CKA_n', 'CKB_n', 'R01', 'R02'], outs: ['QA', 'QB', 'QC', 'QD'],
+      seq(i, p, s) {
+        if (i.R01 && i.R02) return [15, 0];
+        let m = 0, v = 0;
+        if (fall(p, i, 'CKA_n')) { m |= 1; v |= 1 - b(s, 0); }
+        if (fall(p, i, 'CKB_n')) { m |= 14; v |= ((((s >> 1) + 1) & 7) << 1); }
+        return m ? [m, v] : null;
+      },
+      comb(i, s) { return { QA: b(s, 0), QB: b(s, 1), QC: b(s, 2), QD: b(s, 3) }; }
+    },
+    ic74163: {
+      desc: '4-bit synchronous counter, rising edge, sync clear/load', seq: true,
+      ins: ['CLK', 'CLR_n', 'LOAD_n', 'ENP', 'ENT', 'A', 'B', 'C', 'D'], outs: ['QA', 'QB', 'QC', 'QD', 'RCO'],
+      seq(i, p, s) {
+        if (!rise(p, i, 'CLK')) return null;
+        if (!i.CLR_n) return [15, 0];
+        if (!i.LOAD_n) return [15, i.A | i.B << 1 | i.C << 2 | i.D << 3];
+        if (i.ENP && i.ENT) return [15, (s + 1) & 15];
+        return null;
+      },
+      comb(i, s) { return { QA: b(s, 0), QB: b(s, 1), QC: b(s, 2), QD: b(s, 3), RCO: i.ENT & (s === 15 ? 1 : 0) }; }
+    },
+    ic74173: {
+      desc: '4-bit register, rising edge, loads when G1_n=G2_n=0, async clear (CLR active high)', seq: true,
+      ins: ['CLK', 'CLR', 'G1_n', 'G2_n', 'D1', 'D2', 'D3', 'D4'], outs: ['Q1', 'Q2', 'Q3', 'Q4'],
+      seq(i, p, s) {
+        if (i.CLR) return [15, 0];
+        if (!rise(p, i, 'CLK')) return null;
+        if (!i.G1_n && !i.G2_n) return [15, i.D1 | i.D2 << 1 | i.D3 << 2 | i.D4 << 3];
+        return null;
+      },
+      comb(i, s) { return { Q1: b(s, 0), Q2: b(s, 1), Q3: b(s, 2), Q4: b(s, 3) }; }
+    },
+    ic74195: {
+      desc: '4-bit shift register, rising edge, async clear, J/K_n serial input', seq: true,
+      ins: ['CLK', 'CLR_n', 'SH_LD_n', 'J', 'K_n', 'A', 'B', 'C', 'D'], outs: ['QA', 'QB', 'QC', 'QD', 'QD_n'],
+      seq(i, p, s) {
+        if (!i.CLR_n) return [15, 0];
+        if (!rise(p, i, 'CLK')) return null;
+        if (!i.SH_LD_n) return [15, i.A | i.B << 1 | i.C << 2 | i.D << 3];
+        const qa = b(s, 0);
+        return [15, ((s << 1) & 14) | ((i.J & (1 - qa)) | (i.K_n & qa))];
+      },
+      comb(i, s) { return { QA: b(s, 0), QB: b(s, 1), QC: b(s, 2), QD: b(s, 3), QD_n: 1 - b(s, 3) }; }
+    },
+    ic7483: {
+      desc: '4-bit binary full adder',
+      ins: ['A1', 'A2', 'A3', 'A4', 'B1', 'B2', 'B3', 'B4', 'C0'], outs: ['S1', 'S2', 'S3', 'S4', 'C4'],
+      comb(i) {
+        const a = i.A1 | i.A2 << 1 | i.A3 << 2 | i.A4 << 3, c = i.B1 | i.B2 << 1 | i.B3 << 2 | i.B4 << 3, s = a + c + i.C0;
+        return { S1: b(s, 0), S2: b(s, 1), S3: b(s, 2), S4: b(s, 3), C4: b(s, 4) };
+      }
+    },
+    ic7485: {
+      desc: '4-bit magnitude comparator with cascade inputs',
+      ins: ['A3', 'A2', 'A1', 'A0', 'B3', 'B2', 'B1', 'B0', 'IAgtB', 'IAltB', 'IAeqB'], outs: ['OAgtB', 'OAltB', 'OAeqB'],
+      comb(i) {
+        const a = i.A0 | i.A1 << 1 | i.A2 << 2 | i.A3 << 3, c = i.B0 | i.B1 << 1 | i.B2 << 2 | i.B3 << 3;
+        if (a > c) return { OAgtB: 1, OAltB: 0, OAeqB: 0 };
+        if (a < c) return { OAgtB: 0, OAltB: 1, OAeqB: 0 };
+        return { OAgtB: (1 - i.IAeqB) & (1 - i.IAltB), OAltB: (1 - i.IAeqB) & (1 - i.IAgtB), OAeqB: i.IAeqB };
+      }
+    },
+    ic7447: {
+      desc: 'BCD to 7-segment decoder, active-low outputs',
+      ins: ['A', 'B', 'C', 'D', 'LT_n', 'BI_n', 'RBI_n'], outs: ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+      comb(i) {
+        const n = i.A | i.B << 1 | i.C << 2 | i.D << 3;
+        let s = !i.BI_n ? 0 : !i.LT_n ? 0x7F : (!i.RBI_n && n === 0) ? 0 : SEG[n];
+        const o = {}; 'abcdefg'.split('').forEach((k, j) => { o[k] = 1 - ((s >> (6 - j)) & 1); }); return o;
+      }
+    },
+    ic74138: {
+      desc: '3-to-8 decoder, active-low outputs',
+      ins: ['A', 'B', 'C', 'G1', 'G2A_n', 'G2B_n'], outs: ['Y0_n', 'Y1_n', 'Y2_n', 'Y3_n', 'Y4_n', 'Y5_n', 'Y6_n', 'Y7_n'],
+      comb(i) {
+        const en = i.G1 & (1 - i.G2A_n) & (1 - i.G2B_n), n = i.A | i.B << 1 | i.C << 2, o = {};
+        for (let k = 0; k < 8; k++) o['Y' + k + '_n'] = (en && k === n) ? 0 : 1; return o;
+      }
+    },
+    ic74155: {
+      desc: 'Dual 2-to-4 decoder, active-low outputs',
+      ins: ['A', 'B', 'G1_n', 'C1', 'G2_n', 'C2_n'], outs: ['Y1_0_n', 'Y1_1_n', 'Y1_2_n', 'Y1_3_n', 'Y2_0_n', 'Y2_1_n', 'Y2_2_n', 'Y2_3_n'],
+      comb(i) {
+        const e1 = (1 - i.G1_n) & i.C1, e2 = (1 - i.G2_n) & (1 - i.C2_n), n = i.A | i.B << 1, o = {};
+        for (let k = 0; k < 4; k++) { o['Y1_' + k + '_n'] = (e1 && k === n) ? 0 : 1; o['Y2_' + k + '_n'] = (e2 && k === n) ? 0 : 1; }
+        return o;
+      }
+    },
+    ic74151: {
+      desc: '8-to-1 multiplexer',
+      ins: ['D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'A', 'B', 'C', 'G_n'], outs: ['Y', 'W'],
+      comb(i) { const y = (1 - i.G_n) & i['D' + (i.A | i.B << 1 | i.C << 2)]; return { Y: y, W: 1 - y }; }
+    },
+    ic74153: {
+      desc: 'Dual 4-to-1 multiplexer',
+      ins: ['C1_0', 'C1_1', 'C1_2', 'C1_3', 'C2_0', 'C2_1', 'C2_2', 'C2_3', 'A', 'B', 'G1_n', 'G2_n'], outs: ['Y1', 'Y2'],
+      comb(i) { const n = i.A | i.B << 1; return { Y1: (1 - i.G1_n) & i['C1_' + n], Y2: (1 - i.G2_n) & i['C2_' + n] }; }
+    },
+    ic74157: {
+      desc: 'Quad 2-to-1 multiplexer',
+      ins: ['A1', 'B1', 'A2', 'B2', 'A3', 'B3', 'A4', 'B4', 'S', 'G_n'], outs: ['Y1', 'Y2', 'Y3', 'Y4'],
+      comb(i) { const o = {}; for (let k = 1; k <= 4; k++) o['Y' + k] = (1 - i.G_n) & (i.S ? i['B' + k] : i['A' + k]); return o; }
+    }
+  };
+
+  // ---------- parser ----------
+  class VErr extends Error { constructor(msg, line) { super(msg); this.line = line; } }
+
+  function tokenize(src) {
+    const toks = []; let i = 0, line = 1; const n = src.length;
+    while (i < n) {
+      const c = src[i];
+      if (c === '\n') { line++; i++; continue; }
+      if (/\s/.test(c)) { i++; continue; }
+      if (c === '/' && src[i + 1] === '/') { while (i < n && src[i] !== '\n') i++; continue; }
+      if (c === '/' && src[i + 1] === '*') {
+        const j = src.indexOf('*/', i + 2); if (j < 0) throw new VErr('Comment opened with /* is never closed', line);
+        for (let k = i; k < j; k++) if (src[k] === '\n') line++; i = j + 2; continue;
+      }
+      if (c === '`') { while (i < n && src[i] !== '\n') i++; continue; } // `timescale etc.
+      let m = /^[A-Za-z_][A-Za-z0-9_$]*/.exec(src.slice(i, i + 200));
+      if (m) { toks.push({ t: 'id', v: m[0], line }); i += m[0].length; continue; }
+      m = /^[0-9]+\s*'\s*[bBdDhH]\s*[0-9a-fA-FxXzZ_]+|^[0-9]+/.exec(src.slice(i, i + 200));
+      if (m) { toks.push({ t: 'num', v: m[0].replace(/\s/g, ''), line }); i += m[0].length; continue; }
+      if ('();,.[]:=#{}@'.includes(c)) { toks.push({ t: c, v: c, line }); i++; continue; }
+      throw new VErr('Unexpected character "' + c + '"', line);
+    }
+    toks.push({ t: 'eof', v: 'end of file', line });
+    return toks;
+  }
+
+  const FORBIDDEN = {
+    assign: '"assign" is not allowed in this lab. Connect chip pins with wires instead (use a chip for any logic).',
+    always: '"always" blocks are not allowed in this lab. Build the logic from chips.',
+    initial: '"initial" blocks are not allowed here. Use the reset key to start the game.',
+    reg: '"reg" is not needed here. Declare connections with "wire".',
+    parameter: 'Parameters are not allowed in this lab.', localparam: 'Parameters are not allowed in this lab.',
+    generate: '"generate" is not allowed in this lab.', inout: '"inout" ports are not allowed.',
+    supply0: 'Use 1\'b0 instead of supply0.', supply1: 'Use 1\'b1 instead of supply1.', tri: 'Use "wire".', logic: 'Use "wire".'
+  };
+
+  function parse(src) {
+    const toks = tokenize(src); let p = 0;
+    const peek = () => toks[p], next = () => toks[p++];
+    const expect = (t, what) => { const k = next(); if (k.t !== t && !(t === 'id' && k.t === 'id')) throw new VErr('Expected ' + (what || '"' + t + '"') + ' but found "' + k.v + '"', k.line); return k; };
+    const expectKw = (v) => { const k = next(); if (k.v !== v) throw new VErr('Expected "' + v + '" but found "' + k.v + '"', k.line); return k; };
+    const num = (k) => {
+      const m = /^(?:(\d+)'([bBdDhH]))?([0-9a-fA-FxXzZ_]+)$/.exec(k.v); const base = m[2] ? { b: 2, d: 10, h: 16 }[m[2].toLowerCase()] : 10;
+      const s = m[3].replace(/_/g, ''); if (/[xXzZ]/.test(s)) throw new VErr('x and z values are not allowed', k.line);
+      return parseInt(s, base);
+    };
+    const range = () => { // [msb:lsb]
+      expect('['); const a = num(expect('num', 'a number')); expect(':'); const c = num(expect('num', 'a number')); expect(']');
+      return [a, c];
+    };
+    const modules = {};
+    while (peek().t !== 'eof') {
+      const k = next();
+      if (k.v !== 'module') throw new VErr('Expected "module" but found "' + k.v + '"', k.line);
+      const name = expect('id', 'a module name');
+      if (CHIPS[name.v]) throw new VErr('Module name ' + name.v + ' is a chip name. Do not paste chips.v; the page already has the chips.', name.line);
+      if (modules[name.v]) throw new VErr('Module ' + name.v + ' is defined twice', name.line);
+      const mod = { name: name.v, line: name.line, ports: [], decl: {}, insts: [] };
+      modules[name.v] = mod;
+      const declare = (id, dir, rng, line) => {
+        if (mod.decl[id.v] && !(mod.decl[id.v].dir && !dir)) {
+          const d = mod.decl[id.v];
+          if (d.dir === 'port' && dir) { d.dir = dir; d.range = rng; return; }
+          throw new VErr(id.v + ' is declared twice', line);
+        }
+        if (mod.decl[id.v]) { if (rng) mod.decl[id.v].range = rng; return; }
+        mod.decl[id.v] = { dir, range: rng, line };
+      };
+      if (peek().t === '#') throw new VErr('Parameters are not allowed in this lab.', peek().line);
+      expect('(');
+      // port list (ANSI or plain names)
+      let curDir = null, curRng = null;
+      if (peek().t !== ')') {
+        for (;;) {
+          let t = peek();
+          if (t.v === 'input' || t.v === 'output' || t.v === 'inout') {
+            if (t.v === 'inout') throw new VErr(FORBIDDEN.inout, t.line);
+            next(); curDir = t.v; curRng = null;
+            if (peek().v === 'wire') next();
+            if (peek().v === 'reg') throw new VErr(FORBIDDEN.reg, peek().line);
+            if (peek().t === '[') curRng = range();
+          }
+          const id = expect('id', 'a port name');
+          if (FORBIDDEN[id.v]) throw new VErr(FORBIDDEN[id.v], id.line);
+          mod.ports.push(id.v);
+          if (curDir) declare(id, curDir, curRng, id.line); else mod.decl[id.v] = { dir: 'port', line: id.line };
+          if (peek().t === ',') { next(); continue; }
+          break;
+        }
+      }
+      expect(')'); expect(';');
+      // body
+      for (;;) {
+        const t = peek();
+        if (t.t === 'eof') throw new VErr('Module ' + mod.name + ' has no "endmodule"', t.line);
+        if (t.v === 'endmodule') { next(); break; }
+        if (t.t !== 'id') throw new VErr('Unexpected "' + t.v + '"', t.line);
+        if (FORBIDDEN[t.v]) throw new VErr(FORBIDDEN[t.v], t.line);
+        if (t.v === 'input' || t.v === 'output' || t.v === 'wire') {
+          next(); const dir = t.v === 'wire' ? null : t.v; let rng = null;
+          if (peek().v === 'wire') next();
+          if (peek().v === 'reg') throw new VErr(FORBIDDEN.reg, peek().line);
+          if (peek().t === '[') rng = range();
+          for (;;) {
+            const id = expect('id', 'a name');
+            if (FORBIDDEN[id.v]) throw new VErr(FORBIDDEN[id.v], id.line);
+            if (peek().t === '=') throw new VErr('Wires cannot be given values here ("wire x = ..."). Connect them to chip pins.', id.line);
+            if (dir) {
+              const d = mod.decl[id.v];
+              if (!d || d.dir !== 'port') throw new VErr(id.v + ' is declared as ' + dir + ' but is not in the port list of ' + mod.name, id.line);
+              d.dir = dir; d.range = rng;
+            } else {
+              const d = mod.decl[id.v];
+              if (d && d.dir && d.dir !== 'port') { if (rng) d.range = rng; } // "output x; wire x;" is fine
+              else if (d && d.dir === 'port') throw new VErr(id.v + ' needs an input or output declaration', id.line);
+              else declare(id, null, rng, id.line);
+            }
+            if (peek().t === ',') { next(); continue; }
+            break;
+          }
+          expect(';'); continue;
+        }
+        // instance(s): type name ( ... ) [, name ( ... )] ;
+        const type = next();
+        if (peek().t === '#') throw new VErr('Parameters are not allowed in this lab.', peek().line);
+        for (;;) {
+          const iname = expect('id', 'an instance name (like U1)');
+          if (peek().t === '[') throw new VErr('Instance arrays are not allowed. Write each chip separately.', iname.line);
+          expect('(', '"(" after instance name ' + iname.v);
+          const conns = { named: null, pos: [] }; let first = true;
+          if (peek().t !== ')') {
+            for (;;) {
+              if (peek().t === '.') {
+                if (!first && !conns.named) throw new VErr('Do not mix named (.PIN(x)) and ordered connections in ' + iname.v, peek().line);
+                conns.named = conns.named || [];
+                next(); const pin = expect('id', 'a pin name'); expect('(', '"(" after .' + pin.v);
+                let e = null; if (peek().t !== ')') e = expr(); expect(')', '")" after the connection to .' + pin.v);
+                conns.named.push({ pin: pin.v, e, line: pin.line });
+              } else {
+                if (conns.named) throw new VErr('Do not mix named (.PIN(x)) and ordered connections in ' + iname.v, peek().line);
+                conns.pos.push(peek().t === ',' ? null : expr());
+              }
+              first = false;
+              if (peek().t === ',') { next(); continue; }
+              break;
+            }
+          }
+          expect(')', '")" to close the connections of ' + iname.v);
+          if (mod.insts.some(x => x.name === iname.v)) throw new VErr('Instance name ' + iname.v + ' is used twice', iname.line);
+          mod.insts.push({ type: type.v, name: iname.v, conns, line: iname.line });
+          if (peek().t === ',') { next(); continue; }
+          break;
+        }
+        expect(';', '";" after instance');
+      }
+      for (const pn of mod.ports) if (mod.decl[pn].dir === 'port') throw new VErr('Port ' + pn + ' of ' + mod.name + ' has no input/output declaration', mod.decl[pn].line);
+    }
+    return modules;
+
+    function expr() {
+      const k = next();
+      if (k.t === 'num') {
+        const v = num(k); if (v !== 0 && v !== 1) throw new VErr('Only 0 and 1 constants can be connected to a pin (found ' + k.v + ')', k.line);
+        return { c: v, line: k.line };
+      }
+      if (k.t === 'id') {
+        let idx = null;
+        if (peek().t === '[') {
+          next(); idx = num(expect('num', 'a bit number'));
+          if (peek().t === ':') throw new VErr('Part-selects like ' + k.v + '[a:b] cannot connect to one pin. Use one bit, like ' + k.v + '[0].', k.line);
+          expect(']');
+        }
+        return { id: k.v, idx, line: k.line };
+      }
+      if (k.t === '{') throw new VErr('Concatenations { } are not allowed. Connect one wire to each pin.', k.line);
+      if (k.v === '~' || k.v === '!') throw new VErr('Operators are not allowed in connections. Use a 7404 to invert.', k.line);
+      throw new VErr('Expected a wire name or 1\'b0/1\'b1 but found "' + k.v + '"', k.line);
+    }
+  }
+
+  // ---------- elaboration + checks ----------
+  // spec: { top: 'name', ports: [{name, dir:'input'|'output'}] }
+  function build(src, spec) {
+    const errors = [], warnings = [];
+    let modules;
+    try { modules = parse(src); } catch (e) { if (e instanceof VErr) return { errors: [{ msg: e.message, line: e.line }], warnings }; throw e; }
+    const top = modules[spec.top];
+    if (!top) {
+      const names = Object.keys(modules);
+      return { errors: [{ msg: 'No module named ' + spec.top + '. This game needs "module ' + spec.top + '(...)"' + (names.length ? ' (found: ' + names.join(', ') + ')' : '') + '.' }], warnings };
+    }
+    // check top ports against spec
+    for (const sp of spec.ports) {
+      const d = top.decl[sp.name];
+      if (!d || !top.ports.includes(sp.name)) errors.push({ msg: 'Port ' + sp.name + ' (' + sp.dir + ') is missing from module ' + spec.top + '.', line: top.line });
+      else if (d.dir !== sp.dir) errors.push({ msg: 'Port ' + sp.name + ' must be an ' + sp.dir + '.', line: d.line });
+      else if (d.range) errors.push({ msg: 'Port ' + sp.name + ' must be a single bit.', line: d.line });
+    }
+    for (const pn of top.ports) if (!spec.ports.some(s => s.name === pn)) errors.push({ msg: 'Port ' + pn + ' is not part of this game. Use a wire for internal signals.', line: top.decl[pn].line });
+    if (errors.length) return { errors, warnings };
+
+    // union-find over bit nets
+    const parent = [], names = [], konst = [];
+    const mk = (nm) => { parent.push(parent.length); names.push(nm); konst.push(-1); return parent.length - 1; };
+    const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+    const unite = (a, c) => { a = find(a); c = find(c); if (a !== c) parent[c] = a; };
+    const CONST = [mk("1'b0"), mk("1'b1")]; konst[0] = 0; konst[1] = 1;
+    const chips = []; // {type, name, pins:{pin:netId}, line, mod}
+    const topIns = {}, topOuts = {};
+    const used = new Set(); // net ids referenced
+
+    function elab(mod, prefix, portMap, stack) {
+      if (stack.includes(mod.name)) throw new VErr('Module ' + mod.name + ' contains itself', mod.line);
+      const nets = {}; // name -> netId or [ids] for buses (index by bit number)
+      for (const [nm, d] of Object.entries(mod.decl)) {
+        if (d.range) {
+          const lo = Math.min(d.range[0], d.range[1]), hi = Math.max(d.range[0], d.range[1]);
+          if (hi - lo > 63) throw new VErr(nm + ' is too wide', d.line);
+          const bus = {}; for (let k = lo; k <= hi; k++) bus[k] = mk(prefix + nm + '[' + k + ']');
+          nets[nm] = { bus, lo, hi };
+        } else nets[nm] = { id: (portMap && portMap[nm] !== undefined) ? portMap[nm] : mk(prefix + nm) };
+      }
+      if (portMap) for (const pn of mod.ports) if (mod.decl[pn].range) throw new VErr('Ports of your own modules must be single bits (' + mod.name + '.' + pn + ')', mod.decl[pn].line);
+      const ref = (e, where) => {
+        if (e.c !== undefined) return CONST[e.c];
+        const n = nets[e.id];
+        if (!n) throw new VErr(e.id + ' is not declared. Add "wire ' + e.id + ';" (check the spelling).', e.line);
+        if (n.bus) {
+          if (e.idx === null) throw new VErr(e.id + ' is ' + (n.hi - n.lo + 1) + ' bits wide; connect one bit, like ' + e.id + '[' + n.lo + '], to ' + where + '.', e.line);
+          if (!(e.idx in n.bus)) throw new VErr(e.id + '[' + e.idx + '] is outside ' + e.id + '[' + n.hi + ':' + n.lo + ']', e.line);
+          return n.bus[e.idx];
+        }
+        if (e.idx !== null) throw new VErr(e.id + ' is a single wire; remove [' + e.idx + ']', e.line);
+        return n.id;
+      };
+      for (const inst of mod.insts) {
+        const chip = CHIPS[inst.type], sub = modules[inst.type];
+        if (!chip && !sub) throw new VErr('Unknown chip or module "' + inst.type + '". Chip names look like ic7408.', inst.line);
+        const pinList = chip ? chip.ins.concat(chip.outs) : sub.ports;
+        const conn = {};
+        if (inst.conns.named) {
+          for (const c of inst.conns.named) {
+            if (!pinList.includes(c.pin)) throw new VErr(inst.type + ' has no pin ' + c.pin + '. Its pins are: ' + pinList.join(', '), c.line);
+            if (c.pin in conn) throw new VErr('Pin ' + c.pin + ' of ' + inst.name + ' is connected twice', c.line);
+            conn[c.pin] = c.e;
+          }
+        } else {
+          if (inst.conns.pos.length > pinList.length) throw new VErr(inst.name + ' (' + inst.type + ') has ' + pinList.length + ' pins but ' + inst.conns.pos.length + ' connections are given', inst.line);
+          inst.conns.pos.forEach((e, k) => { conn[pinList[k]] = e; });
+        }
+        const label = prefix + inst.name;
+        if (chip) {
+          const pins = {};
+          for (const pn of chip.ins) {
+            if (!conn[pn]) throw new VErr(label + ' (' + inst.type + ') pin ' + pn + ' is not connected. Tie unused inputs to 1\'b0 or 1\'b1.', inst.line);
+            pins[pn] = ref(conn[pn], label + '.' + pn); used.add(pins[pn]);
+          }
+          for (const pn of chip.outs) {
+            if (!conn[pn]) { pins[pn] = -1; continue; }
+            if (conn[pn].c !== undefined) throw new VErr(label + ' output pin ' + pn + ' is tied to a constant. Leave unused outputs unconnected.', conn[pn].line);
+            pins[pn] = ref(conn[pn], label + '.' + pn); used.add(pins[pn]);
+          }
+          chips.push({ type: inst.type, name: label, pins, line: inst.line });
+        } else {
+          const pm = {};
+          for (const pn of sub.ports) {
+            if (!conn[pn]) {
+              if (sub.decl[pn].dir === 'input') throw new VErr(label + ' (' + inst.type + ') input ' + pn + ' is not connected', inst.line);
+              continue;
+            }
+            pm[pn] = ref(conn[pn], label + '.' + pn); used.add(pm[pn]);
+          }
+          // child port nets are created fresh and united, so names stay readable
+          const childMap = {};
+          for (const pn of sub.ports) { childMap[pn] = mk(label + '.' + pn); if (pn in pm) unite(pm[pn], childMap[pn]); }
+          elab(sub, label + '.', childMap, stack.concat(mod.name));
+          // remember direction for driver checks
+          for (const pn of sub.ports) if (sub.decl[pn].dir === 'output' && pm[pn] !== undefined && conn[pn].c !== undefined) throw new VErr(label + ' output ' + pn + ' is tied to a constant', inst.line);
+        }
+      }
+      if (!portMap) {
+        for (const pn of mod.ports) { const id = nets[pn].id; (mod.decl[pn].dir === 'input' ? topIns : topOuts)[pn] = id; used.add(id); }
+      }
+      // unused declared wires
+      for (const [nm, d] of Object.entries(mod.decl)) {
+        if (d.dir || nets[nm].bus) continue;
+        if (!used.has(nets[nm].id) && !(portMap && mod.ports.includes(nm))) warnings.push({ msg: 'Wire ' + prefix + nm + ' is declared but not used.', line: d.line });
+      }
+    }
+    try { elab(top, '', null, []); } catch (e) { if (e instanceof VErr) return { errors: [{ msg: e.message, line: e.line }], warnings }; throw e; }
+
+    // resolve nets
+    const root = parent.map((_, k) => find(k));
+    const ids = new Map(); const netName = []; const rootOf = (x) => root[x];
+    const nid = (x) => { const r = rootOf(x); if (!ids.has(r)) { ids.set(r, netName.length); netName.push(null); } return ids.get(r); };
+    // pick a readable name for each net: prefer shortest (top-level) name
+    const nameOf = new Map();
+    names.forEach((nm, k) => { const r = rootOf(k); const cur = nameOf.get(r); if (cur === undefined || nm.split('.').length < cur.split('.').length || (nm.split('.').length === cur.split('.').length && nm.length < cur.length)) nameOf.set(r, nm); });
+    const drivers = new Map(), readers = new Map();
+    const add = (m, r, what) => { if (!m.has(r)) m.set(r, []); m.get(r).push(what); };
+    add(drivers, rootOf(CONST[0]), "1'b0"); add(drivers, rootOf(CONST[1]), "1'b1");
+    for (const [pn, id] of Object.entries(topIns)) add(drivers, rootOf(id), 'input ' + pn);
+    for (const c of chips) {
+      const def = CHIPS[c.type];
+      for (const pn of def.outs) if (c.pins[pn] >= 0) add(drivers, rootOf(c.pins[pn]), c.name + '.' + pn);
+      for (const pn of def.ins) add(readers, rootOf(c.pins[pn]), c.name + '.' + pn);
+    }
+    for (const [pn, id] of Object.entries(topOuts)) add(readers, rootOf(id), 'output ' + pn);
+    const errs = [];
+    for (const [r, ds] of drivers) if (ds.length > 1) errs.push({ msg: 'Wire ' + nameOf.get(r) + ' has ' + ds.length + ' drivers (' + ds.join(', ') + '). Only one output may drive a wire.' });
+    for (const [r, rs] of readers) if (!drivers.has(r)) {
+      const top = rs.find(x => x.startsWith('output '));
+      errs.push({ msg: top ? 'Game ' + top + ' is not driven by any chip.' : 'Wire ' + nameOf.get(r) + ' is read by ' + rs.slice(0, 3).join(', ') + (rs.length > 3 ? '…' : '') + ' but nothing drives it.' });
+    }
+    for (const [pn, id] of Object.entries(topIns)) if (!readers.has(rootOf(id))) warnings.push({ msg: 'Game input ' + pn + ' is not used.' });
+    if (errs.length) return { errors: errs, warnings };
+
+    // build the simulator netlist
+    const N = []; // net index -> {name, const}
+    const idx = new Map();
+    const net = (x) => { const r = rootOf(x); if (!idx.has(r)) { idx.set(r, N.length); N.push({ name: nameOf.get(r), k: r === rootOf(CONST[0]) ? 0 : r === rootOf(CONST[1]) ? 1 : -1 }); } return idx.get(r); };
+    const insts = chips.map(c => {
+      const def = CHIPS[c.type], pins = {};
+      for (const pn of def.ins.concat(def.outs)) pins[pn] = c.pins[pn] >= 0 ? net(c.pins[pn]) : -1;
+      return { type: c.type, name: c.name, def, pins, line: c.line };
+    });
+    const ins = {}, outs = {};
+    for (const [pn, id] of Object.entries(topIns)) ins[pn] = net(id);
+    for (const [pn, id] of Object.entries(topOuts)) outs[pn] = net(id);
+    return { errors: [], warnings, sim: new Sim(N, insts, ins, outs) };
+  }
+
+  // ---------- simulator ----------
+  class Sim {
+    constructor(nets, insts, ins, outs) {
+      this.nets = nets; this.insts = insts; this.ins = ins; this.outs = outs;
+      this.v = new Uint8Array(nets.length);
+      nets.forEach((n, k) => { if (n.k === 1) this.v[k] = 1; });
+      this.readers = nets.map(() => []);
+      insts.forEach((it, k) => { it.idx = k; it.state = 0; it.prev = null; for (const pn of it.def.ins) this.readers[it.pins[pn]].push(k); });
+      this.queue = []; this.inQ = new Uint8Array(insts.length);
+      this.chipCount = insts.length;
+      insts.forEach((_, k) => this.enq(k));
+      this.settle();
+    }
+    enq(k) { if (!this.inQ[k]) { this.inQ[k] = 1; this.queue.push(k); } }
+    set(netIdx, val) { if (this.v[netIdx] !== val) { this.v[netIdx] = val; for (const r of this.readers[netIdx]) this.enq(r); } }
+    input(name, val) { this.set(this.ins[name], val ? 1 : 0); this.settle(); }
+    output(name) { return this.v[this.outs[name]]; }
+    netNames() { return this.nets.map(n => n.name); }
+    settle() {
+      let evals = 0; const limit = 20000 + 200 * this.insts.length; const toggles = new Map();
+      for (;;) {
+        const nba = [];
+        while (this.queue.length) {
+          const k = this.queue.shift(); this.inQ[k] = 0;
+          const it = this.insts[k], def = it.def, i = {};
+          for (const pn of def.ins) i[pn] = this.v[it.pins[pn]];
+          if (def.seq) { const r = def.seq(i, it.prev || i, it.state); if (r) nba.push([it, r]); }
+          it.prev = i;
+          const o = def.comb(i, it.state);
+          for (const pn of def.outs) {
+            const n = it.pins[pn]; if (n < 0) continue;
+            if (this.v[n] !== o[pn]) { this.set(n, o[pn]); if (evals > limit - 400) toggles.set(n, (toggles.get(n) || 0) + 1); }
+          }
+          if (++evals > limit) {
+            const loop = [...toggles.keys()].map(n => this.nets[n].name).slice(0, 6);
+            throw new Error('The circuit never settles: a feedback loop without a flip-flop keeps oscillating' + (loop.length ? ' (wires ' + loop.join(', ') + ')' : '') + '.');
+          }
+        }
+        if (!nba.length) return;
+        for (const [it, [m, val]] of nba) {
+          const ns = (it.state & ~m) | (val & m);
+          if (ns !== it.state) { it.state = ns; this.enq(it.idx); }
+        }
+        if (!this.queue.length) return;
+      }
+    }
+  }
+
+  const api = { CHIPS, parse, build, Sim };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.GameEngine = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+const CHIPS_V = "// F215 game lab: 74xx chip models. Use these modules exactly as given.\n// Active-low pins end in _n. Unused inputs must still be tied to 1'b0 or 1'b1.\n`timescale 1ns/1ns\nmodule ic7400(input A1,B1,A2,B2,A3,B3,A4,B4, output Y1,Y2,Y3,Y4); // quad 2-input NAND\n  assign Y1=~(A1&B1); assign Y2=~(A2&B2); assign Y3=~(A3&B3); assign Y4=~(A4&B4);\nendmodule\nmodule ic7402(input A1,B1,A2,B2,A3,B3,A4,B4, output Y1,Y2,Y3,Y4); // quad 2-input NOR\n  assign Y1=~(A1|B1); assign Y2=~(A2|B2); assign Y3=~(A3|B3); assign Y4=~(A4|B4);\nendmodule\nmodule ic7404(input A1,A2,A3,A4,A5,A6, output Y1,Y2,Y3,Y4,Y5,Y6); // hex inverter\n  assign Y1=~A1; assign Y2=~A2; assign Y3=~A3; assign Y4=~A4; assign Y5=~A5; assign Y6=~A6;\nendmodule\nmodule ic7408(input A1,B1,A2,B2,A3,B3,A4,B4, output Y1,Y2,Y3,Y4); // quad 2-input AND\n  assign Y1=A1&B1; assign Y2=A2&B2; assign Y3=A3&B3; assign Y4=A4&B4;\nendmodule\nmodule ic7410(input A1,B1,C1,A2,B2,C2,A3,B3,C3, output Y1,Y2,Y3); // triple 3-input NAND\n  assign Y1=~(A1&B1&C1); assign Y2=~(A2&B2&C2); assign Y3=~(A3&B3&C3);\nendmodule\nmodule ic7432(input A1,B1,A2,B2,A3,B3,A4,B4, output Y1,Y2,Y3,Y4); // quad 2-input OR\n  assign Y1=A1|B1; assign Y2=A2|B2; assign Y3=A3|B3; assign Y4=A4|B4;\nendmodule\nmodule ic7486(input A1,B1,A2,B2,A3,B3,A4,B4, output Y1,Y2,Y3,Y4); // quad 2-input XOR\n  assign Y1=A1^B1; assign Y2=A2^B2; assign Y3=A3^B3; assign Y4=A4^B4;\nendmodule\n\n// dual D flip-flop, rising edge, async active-low preset and clear (do not assert both)\nmodule ic7474(input D1,CLK1,PRE1_n,CLR1_n, D2,CLK2,PRE2_n,CLR2_n, output Q1,Q1_n,Q2,Q2_n);\n  reg q1, q2;\n  always @(posedge CLK1 or negedge PRE1_n or negedge CLR1_n)\n    if(!CLR1_n) q1<=0; else if(!PRE1_n) q1<=1; else q1<=D1;\n  always @(posedge CLK2 or negedge PRE2_n or negedge CLR2_n)\n    if(!CLR2_n) q2<=0; else if(!PRE2_n) q2<=1; else q2<=D2;\n  assign Q1=q1; assign Q1_n=~q1; assign Q2=q2; assign Q2_n=~q2;\nendmodule\n\n// dual JK flip-flop, falling edge, async active-low preset and clear (do not assert both)\nmodule ic74112(input J1,K1,CLK1,PRE1_n,CLR1_n, J2,K2,CLK2,PRE2_n,CLR2_n, output Q1,Q1_n,Q2,Q2_n);\n  reg q1, q2;\n  always @(negedge CLK1 or negedge PRE1_n or negedge CLR1_n)\n    if(!CLR1_n) q1<=0; else if(!PRE1_n) q1<=1; else q1 <= (J1&~q1)|(~K1&q1);\n  always @(negedge CLK2 or negedge PRE2_n or negedge CLR2_n)\n    if(!CLR2_n) q2<=0; else if(!PRE2_n) q2<=1; else q2 <= (J2&~q2)|(~K2&q2);\n  assign Q1=q1; assign Q1_n=~q1; assign Q2=q2; assign Q2_n=~q2;\nendmodule\n\n// 4-bit ripple counter. QA toggles on CKA_n falling edge; QB..QD count on CKB_n falling edge.\n// Wire QA to CKB_n for a 0-15 counter. Async reset when R01 and R02 are both 1.\nmodule ic7493(input CKA_n,CKB_n,R01,R02, output QA,QB,QC,QD);\n  reg qa; reg [2:0] q; wire r = R01 & R02;\n  always @(negedge CKA_n or posedge r) if(r) qa<=0; else qa<=~qa;\n  always @(negedge CKB_n or posedge r) if(r) q<=0; else q<=q+3'd1;\n  assign QA=qa; assign {QD,QC,QB}=q;\nendmodule\n\n// 4-bit synchronous binary counter, rising edge. Sync clear (CLR_n=0), else sync load (LOAD_n=0),\n// else count up when ENP=ENT=1. RCO = ENT & (count==15). QA is the LSB.\nmodule ic74163(input CLK,CLR_n,LOAD_n,ENP,ENT,A,B,C,D, output QA,QB,QC,QD,RCO);\n  reg [3:0] q;\n  always @(posedge CLK)\n    if(!CLR_n) q<=0; else if(!LOAD_n) q<={D,C,B,A}; else if(ENP&ENT) q<=q+4'd1;\n  assign {QD,QC,QB,QA}=q; assign RCO = ENT & (&q);\nendmodule\n\n// 4-bit register (data outputs always enabled; M/N tri-state pins not modelled). Rising edge.\n// Loads D1-D4 when G1_n = G2_n = 0, otherwise holds. CLR = 1 clears asynchronously (active HIGH).\nmodule ic74173(input CLK,CLR,G1_n,G2_n,D1,D2,D3,D4, output Q1,Q2,Q3,Q4);\n  reg [3:0] q; // q[0]=Q1\n  always @(posedge CLK or posedge CLR)\n    if(CLR) q<=0; else if(!G1_n && !G2_n) q<={D4,D3,D2,D1};\n  assign {Q4,Q3,Q2,Q1}=q;\nendmodule\n\n// 4-bit shift register, rising edge, async clear. SH_LD_n=0: load A-D. SH_LD_n=1: shift QA->QB->QC->QD,\n// and QA gets J/K_n (J=K_n=1: set, J=K_n=0: reset, J=0,K_n=1: hold, J=1,K_n=0: toggle).\nmodule ic74195(input CLK,CLR_n,SH_LD_n,J,K_n,A,B,C,D, output QA,QB,QC,QD,QD_n);\n  reg [3:0] q; // q[0]=QA\n  always @(posedge CLK or negedge CLR_n)\n    if(!CLR_n) q<=0;\n    else if(!SH_LD_n) q<={D,C,B,A};\n    else q<={q[2:0], (J&~q[0])|(K_n&q[0])};\n  assign {QD,QC,QB,QA}=q; assign QD_n=~q[3];\nendmodule\n\n// 4-bit binary full adder. A1/B1/S1 are the LSBs.\nmodule ic7483(input A1,A2,A3,A4,B1,B2,B3,B4,C0, output S1,S2,S3,S4,C4);\n  assign {C4,S4,S3,S2,S1} = {A4,A3,A2,A1} + {B4,B3,B2,B1} + C0;\nendmodule\n\n// 4-bit magnitude comparator. A3/B3 are the MSBs. Cascade inputs used when A==B.\nmodule ic7485(input A3,A2,A1,A0,B3,B2,B1,B0,IAgtB,IAltB,IAeqB, output OAgtB,OAltB,OAeqB);\n  wire [3:0] a={A3,A2,A1,A0}, b={B3,B2,B1,B0};\n  assign OAgtB = (a>b) | ((a==b) & ~IAeqB & ~IAltB);\n  assign OAltB = (a<b) | ((a==b) & ~IAeqB & ~IAgtB);\n  assign OAeqB = (a==b) & IAeqB;\nendmodule\n\n// BCD to 7-segment decoder/driver, active-low outputs (segment lit when 0).\n// D is the MSB. LT_n=0 lights all segments. BI_n=0 blanks. RBI_n=0 blanks a 0.\n// Inputs 10-15 give the real 7447 symbols (15 is blank).\nmodule ic7447(input A,B,C,D,LT_n,BI_n,RBI_n, output a,b,c,d,e,f,g);\n  reg [6:0] s; // {a,b,c,d,e,f,g}, 1 = lit\n  always @(*)\n    if(!BI_n) s=7'b0000000;\n    else if(!LT_n) s=7'b1111111;\n    else if(!RBI_n && {D,C,B,A}==4'd0) s=7'b0000000;\n    else case({D,C,B,A})\n      0:s=7'b1111110; 1:s=7'b0110000; 2:s=7'b1101101; 3:s=7'b1111001;\n      4:s=7'b0110011; 5:s=7'b1011011; 6:s=7'b0011111; 7:s=7'b1110000;\n      8:s=7'b1111111; 9:s=7'b1110011; 10:s=7'b0001101; 11:s=7'b0011001;\n      12:s=7'b0100011; 13:s=7'b1001011; 14:s=7'b0001111; default:s=7'b0000000;\n    endcase\n  assign {a,b,c,d,e,f,g} = ~s;\nendmodule\n\n// 3-to-8 decoder, active-low outputs. C is the MSB. Enabled when G1=1, G2A_n=0, G2B_n=0.\nmodule ic74138(input A,B,C,G1,G2A_n,G2B_n, output Y0_n,Y1_n,Y2_n,Y3_n,Y4_n,Y5_n,Y6_n,Y7_n);\n  wire en = G1 & ~G2A_n & ~G2B_n; wire [2:0] s={C,B,A};\n  assign {Y7_n,Y6_n,Y5_n,Y4_n,Y3_n,Y2_n,Y1_n,Y0_n} = ~(en ? (8'd1<<s) : 8'd0);\nendmodule\n\n// dual 2-to-4 decoder, active-low outputs, shared select A (LSB), B.\n// Section 1 enabled when G1_n=0 and C1=1. Section 2 enabled when G2_n=0 and C2_n=0.\nmodule ic74155(input A,B,G1_n,C1,G2_n,C2_n,\n               output Y1_0_n,Y1_1_n,Y1_2_n,Y1_3_n,Y2_0_n,Y2_1_n,Y2_2_n,Y2_3_n);\n  wire e1 = ~G1_n & C1, e2 = ~G2_n & ~C2_n; wire [1:0] s={B,A};\n  assign {Y1_3_n,Y1_2_n,Y1_1_n,Y1_0_n} = ~(e1 ? (4'd1<<s) : 4'd0);\n  assign {Y2_3_n,Y2_2_n,Y2_1_n,Y2_0_n} = ~(e2 ? (4'd1<<s) : 4'd0);\nendmodule\n\n// 8-to-1 multiplexer. C is the MSB select. G_n=1 forces Y=0. W = ~Y.\nmodule ic74151(input D0,D1,D2,D3,D4,D5,D6,D7,A,B,C,G_n, output Y,W);\n  wire [7:0] d={D7,D6,D5,D4,D3,D2,D1,D0};\n  assign Y = ~G_n & d[{C,B,A}]; assign W = ~Y;\nendmodule\n\n// dual 4-to-1 multiplexer, shared select A (LSB), B. G1_n/G2_n=1 forces that output to 0.\nmodule ic74153(input C1_0,C1_1,C1_2,C1_3,C2_0,C2_1,C2_2,C2_3,A,B,G1_n,G2_n, output Y1,Y2);\n  wire [3:0] c1={C1_3,C1_2,C1_1,C1_0}, c2={C2_3,C2_2,C2_1,C2_0};\n  assign Y1 = ~G1_n & c1[{B,A}]; assign Y2 = ~G2_n & c2[{B,A}];\nendmodule\n\n// quad 2-to-1 multiplexer. S=0 picks A, S=1 picks B. G_n=1 forces all outputs to 0.\nmodule ic74157(input A1,B1,A2,B2,A3,B3,A4,B4,S,G_n, output Y1,Y2,Y3,Y4);\n  assign Y1=~G_n&(S?B1:A1); assign Y2=~G_n&(S?B2:A2);\n  assign Y3=~G_n&(S?B3:A3); assign Y4=~G_n&(S?B4:A4);\nendmodule\n";
+(function () {
+  'use strict';
+  const E = window.GameEngine;
+  const $ = (id) => document.getElementById(id);
+  const seg = (s = '', p = '') => 'abcdefg'.split('').map(x => p + x + s);
+  const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+  const GAMES = {
+    dice: {
+      label: 'Demo: dice', level: 0, hz: 20,
+      ins: ['clk', 'rst_n', 'roll'], outs: seg(),
+      face: { rows: [[{ digit: '', label: 'Die' }], [{ btn: 'roll', key: ' ', cap: 'Space', label: 'Roll' }]] },
+      rules: ['This worked example shows the syntax. Build it, then hold Space to roll and let go to stop.',
+        'After reset the display is blank.', 'While ROLL is held the count runs 1, 2, 3, 4, 5, 6, 1, … one step per tick.', 'Releasing ROLL freezes the number shown.'],
+      desc: { roll: 'Roll button (1 while held)' },
+      demo: `// Worked example: an electronic die from three chips.
+module dice(input clk, rst_n, roll,
+            output a, b, c, d, e, f, g);
+  wire q0, q1, q2, q3, load_n;
+
+  // Counter: clears on reset, counts while roll = 1,
+  // and loads 1 instead of going past 6.
+  ic74163 U1 (.CLK(clk), .CLR_n(rst_n), .LOAD_n(load_n), .ENP(roll), .ENT(1'b1),
+              .A(1'b1), .B(1'b0), .C(1'b0), .D(1'b0),
+              .QA(q0), .QB(q1), .QC(q2), .QD(q3));
+
+  // load_n = 0 when count = 6 (QC = QB = 1) and roll = 1.
+  // Gates 2 and 3 are unused, so their inputs are tied low.
+  ic7410 U2 (.A1(q2), .B1(q1), .C1(roll), .Y1(load_n),
+             .A2(1'b0), .B2(1'b0), .C2(1'b0),
+             .A3(1'b0), .B3(1'b0), .C3(1'b0));
+
+  // Display. RBI_n = 0 blanks the 0 shown after reset.
+  ic7447 U3 (.A(q0), .B(q1), .C(q2), .D(q3), .LT_n(1'b1), .BI_n(1'b1), .RBI_n(1'b0),
+             .a(a), .b(b), .c(c), .d(d), .e(e), .f(f), .g(g));
+endmodule
+`
+    },
+    reaction: {
+      label: 'Reaction timer', level: 2, hz: 10,
+      ins: ['clk', 'rst_n', 'clr_n', 'start', 'stop', 'S3', 'S2', 'S1', 'S0'], outs: ['go', 'foul'].concat(seg(), seg('', 'b')),
+      face: { rows: [[{ led: 'go', color: 'green', label: 'Go' }, { digit: '', label: 'Ticks' }, { digit: '', pre: 'b', label: 'Best' }, { led: 'foul', color: 'red', label: 'Foul' }],
+        [{ sw: 'S3', key: '1' }, { sw: 'S2', key: '2' }, { sw: 'S1', key: '3' }, { sw: 'S0', key: '4' }],
+        [{ btn: 'start', key: 's', cap: 'S', label: 'Start' }, { btn: 'stop', key: ' ', cap: 'Space', label: 'Stop' }]] },
+      rules: ['R starts a new round: both lights off, display 0. BEST is kept.',
+        'C clears everything, including BEST (the page also does this when it switches on).',
+        'Your partner secretly sets a delay of 1 to 15 ticks on switches S3–S0 (S3 is the MSB).',
+        'Press START. GO lights exactly that many ticks later.',
+        'While GO is lit the display counts clock ticks, stopping at 9.',
+        'Press STOP: the display freezes and shows your reaction time in ticks (at 10 Hz, tenths of a second).',
+        'BEST shows the fastest time since C, and is blank until a time has been recorded. A new time replaces it only if it is lower.',
+        'Pressing STOP after START but before GO, or on the very tick GO would light, lights FOUL. GO then never lights, the display stays at 0, and BEST is unchanged.',
+        'STOP pressed before START is ignored.'],
+      desc: { start: 'Start button', stop: 'Stop button', S3: 'Secret delay, bit 3 (MSB)', S2: 'Secret delay, bit 2', S1: 'Secret delay, bit 1', S0: 'Secret delay, bit 0 (LSB)', go: 'GO lamp', foul: 'FOUL lamp', ba: 'BEST display segments a–g (active low)' }
+    },
+    stoplight: {
+      label: 'Stop the light', level: 1, hz: 4,
+      ins: ['clk', 'rst_n', 'clr_n', 'hit'], outs: ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'miss'].concat(seg(), seg('', 'b')),
+      face: { rows: [[0, 1, 2, 3, 4, 5, 6, 7].map(k => ({ led: 'L' + k, color: 'red', label: 'L' + k, target: k === 4 })),
+        [{ led: 'miss', color: 'amber', label: 'Miss' }, { digit: '', label: 'Score' }, { digit: '', pre: 'b', label: 'Best' }],
+        [{ btn: 'hit', key: ' ', cap: 'Space', label: 'Hit' }]] },
+      rules: ['R starts a new round: only L0 lit, score 0. BEST is kept.',
+        'C clears everything, including BEST (the page also does this when it switches on).',
+        'Each tick the light moves one step: L0 → L1 → … → L7 → L0.',
+        'Press HIT while L4 (the target) is lit: the score goes up by 1. Holding HIT down counts as one press.',
+        'Press HIT while any other LED is lit: MISS lights and the light stops moving.',
+        'When the score reaches 9 the light stops: you win.',
+        'When the round ends (MISS or a win), BEST takes the score if the score is higher.'],
+      desc: { hit: 'Hit button', miss: 'MISS lamp', ba: 'BEST display segments a–g (active low)' }
+    },
+    lock: {
+      label: 'Combination lock', level: 3, hz: 10,
+      ins: ['clk', 'rst_n', 'clr_n', 'set', 'k1', 'k2', 'k3', 'k4'], outs: ['unlocked', 'alarm'].concat(seg()),
+      face: { rows: [[{ led: 'unlocked', color: 'green', label: 'Open' }, { digit: '', label: 'Progress' }, { led: 'alarm', color: 'red', label: 'Alarm' }],
+        [1, 2, 3, 4].map(k => ({ btn: 'k' + k, key: String(k), cap: String(k), label: 'Key ' + k })),
+        [{ btn: 'set', key: 's', cap: 'S', label: 'Set (hold)' }]] },
+      rules: ['R locks the lock: progress 0, no alarm. The stored code is kept.',
+        'C clears everything and sets the code to 1-1-1-1 (the page also does this when it switches on).',
+        'Keys are pressed one at a time, and each press counts once however long it is held.',
+        'The correct next key of the code raises progress by 1; the display shows progress.',
+        'A wrong key sends progress back to 0.',
+        'After the fourth correct key, OPEN lights, the display shows 4, and further keys do not change progress.',
+        'Changing the code: while OPEN, hold SET and press four keys. They become the new code, in order; if more than four are pressed, the last four count. SET does nothing while the lock is locked.',
+        'The third wrong key in total since R lights ALARM, and all keys are ignored until R.'],
+      desc: { set: 'SET button (1 while held)', k1: 'Key 1', k2: 'Key 2', k3: 'Key 3', k4: 'Key 4', unlocked: 'OPEN lamp', alarm: 'ALARM lamp' }
+    },
+    pong: {
+      label: 'Ping-pong', level: 4, hz: 3,
+      ins: ['clk', 'rst_n', 'clr_n', 'p1', 'p2'], outs: ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7'].concat(seg('1'), seg('2'), seg('1', 'm'), seg('2', 'm')),
+      face: { rows: [[{ digit: '1', pre: 'm', label: 'P1 matches' }, { digit: '1', label: 'P1' }, { digit: '2', label: 'P2' }, { digit: '2', pre: 'm', label: 'P2 matches' }],
+        [0, 1, 2, 3, 4, 5, 6, 7].map(k => ({ led: 'L' + k, color: k === 0 || k === 7 ? 'amber' : 'red', label: 'L' + k })),
+        [{ btn: 'p1', key: 'a', cap: 'A', label: 'P1 hit' }, { btn: 'p2', key: 'l', cap: 'L', label: 'P2 hit' }]] },
+      rules: ['R starts a new match: score 0–0, ball on L0 moving towards player 2 (L7). Matches won are kept.',
+        'C clears everything, including matches won (the page also does this when it switches on).',
+        'The ball moves one LED per tick. The receiver is the player the ball is moving towards.',
+        'The receiver returns the ball by having their button down while the ball is on their end LED (L7 for P2, L0 for P1). The ball stays on that LED for one more tick, then moves back.',
+        'If the receiver does not press while the ball is on their end LED, the other player scores.',
+        'Early swing: if the receiver’s button is down while the ball is on one of the three LEDs before their end (L4–L6 for P2, L3–L1 for P1), the other player scores.',
+        'After a point the ball restarts on the scorer’s end LED, heading to the same receiver.',
+        'The first player to 9 wins the match: the game stops and that player’s MATCHES display goes up by 1.'],
+      desc: { p1: 'Player 1 button', p2: 'Player 2 button', a1: 'P1 score segments a–g (active low)', a2: 'P2 score segments a–g (active low)', ma1: 'P1 matches-won segments a–g (active low)', ma2: 'P2 matches-won segments a–g (active low)' }
+    }
+  };
+  const ORDER = ['stoplight', 'reaction'];
+
+  const template = (g) => {
+    const G = GAMES[g], pad = ' '.repeat(g.length + 8), lines = []; let cur = [];
+    for (const o of G.outs) { cur.push(o); if (cur.join(', ').length > 52) { lines.push(cur.join(', ')); cur = []; } }
+    if (cur.length) lines.push(cur.join(', '));
+    const outs = lines.map((l, k) => (k ? pad + '       ' : '') + l).join(',\n');
+    return `module ${g}(input ${G.ins.join(', ')},\n${pad}output ${outs});\n  // Declare your wires here, e.g.\n  //   wire armed, armed_next;\n\n  // Place chips here, e.g.\n  //   ic7408 U1 (.A1(x), .B1(y), .Y1(z), ...);\n\nendmodule\n`;
+  };
+
+  // ---------- state ----------
+  let game = null, sim = null, running = true, hz = 4, tick = 0, clk = 0, acc = 0, last = 0;
+  const held = {};        // input -> physically held
+  const latched = {};     // input -> must stay 1 until a rising edge sees it
+  let rstTicks = 0, rHeld = false, clrTicks = 0, cHeld = false;
+  const hasClr = () => GAMES[game].ins.includes('clr_n');
+  let watch = [], hist = [];
+  let errLines = new Set();
+
+  // ---------- tabs ----------
+  const tabs = $('tabs');
+  ORDER.forEach(g => {
+    const b = document.createElement('button'); b.className = 'tab'; b.setAttribute('role', 'tab'); b.id = 'tab-' + g;
+    const lvl = GAMES[g].level;
+    b.innerHTML = `${GAMES[g].label}` + (lvl ? ` <span class="pips" aria-label="difficulty ${lvl} of 4">${[1, 2, 3, 4].map(k => `<i class="${k <= lvl ? 'on' : ''}"></i>`).join('')}</span>` : '');
+    b.addEventListener('click', () => select(g)); tabs.appendChild(b);
+  });
+
+  // ---------- editor ----------
+  const code = $('code'), gutter = $('gutter');
+  const renderGutter = () => {
+    const n = code.value.split('\n').length; let s = '';
+    for (let k = 1; k <= n; k++) s += (errLines.has(k) ? `<span class="bad">${k}</span>` : k) + '\n';
+    gutter.innerHTML = s;
+  };
+  code.addEventListener('input', () => { renderGutter(); if (game) store.set('ttl-src-' + game, code.value); });
+  code.addEventListener('scroll', () => { gutter.scrollTop = code.scrollTop; });
+  code.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') { e.preventDefault(); const s = code.selectionStart; code.setRangeText('  ', s, code.selectionEnd, 'end'); code.dispatchEvent(new Event('input')); }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); build(); }
+  });
+  const gotoLine = (n) => {
+    const lines = code.value.split('\n'); let p = 0; for (let k = 0; k < n - 1 && k < lines.length; k++) p += lines[k].length + 1;
+    code.focus(); code.setSelectionRange(p, p + (lines[n - 1] || '').length);
+    code.scrollTop = Math.max(0, (n - 6) * 20); gutter.scrollTop = code.scrollTop;
+  };
+  $('file').addEventListener('change', (e) => {
+    const f = e.target.files[0]; if (!f) return; const r = new FileReader();
+    r.onload = () => { code.value = String(r.result); code.dispatchEvent(new Event('input')); build(); };
+    r.readAsText(f); e.target.value = '';
+  });
+  let tplArmed = false;
+  $('tpl').addEventListener('click', () => {
+    const cur = code.value.trim();
+    if (cur && cur !== template(game).trim() && !tplArmed) { tplArmed = true; $('tpl').textContent = 'Replace your code?'; setTimeout(() => { tplArmed = false; $('tpl').textContent = 'Start from template'; }, 3000); return; }
+    tplArmed = false; $('tpl').textContent = 'Start from template';
+    code.value = game === 'dice' ? GAMES.dice.demo : template(game); code.dispatchEvent(new Event('input'));
+  });
+  $('build').addEventListener('click', () => build());
+
+  const showMsgs = (list) => {
+    const box = $('msgs'); box.innerHTML = '';
+    for (const m of list) {
+      const d = document.createElement('div'); d.className = 'msg ' + m.kind;
+      const tag = document.createElement('b'); tag.textContent = m.kind === 'err' ? 'Error' : m.kind === 'warn' ? 'Note' : 'Built';
+      d.appendChild(tag);
+      if (m.line) { const a = document.createElement('button'); a.textContent = 'line ' + m.line; a.addEventListener('click', () => gotoLine(m.line)); d.appendChild(a); }
+      const t = document.createElement('span'); t.textContent = m.msg; d.appendChild(t); box.appendChild(d);
+    }
+  };
+
+  // ---------- build ----------
+  function build() {
+    const G = GAMES[game];
+    const spec = { top: game, ports: G.ins.map(n => ({ name: n, dir: 'input' })).concat(G.outs.map(n => ({ name: n, dir: 'output' }))) };
+    let r;
+    try { r = E.build(code.value, spec); } catch (e) { r = { errors: [{ msg: e.message }], warnings: [] }; }
+    errLines = new Set(r.errors.filter(x => x.line).map(x => x.line)); renderGutter();
+    if (r.errors.length) {
+      sim = null; setFace(false, 'Fix the errors to switch the console on.');
+      showMsgs(r.errors.map(x => ({ kind: 'err', msg: x.msg, line: x.line })).concat(r.warnings.map(x => ({ kind: 'warn', msg: x.msg, line: x.line }))));
+      populateNets(); return;
+    }
+    sim = r.sim;
+    try {
+      for (const k of Object.keys(held)) delete held[k];
+      for (const k of Object.keys(latched)) delete latched[k];
+      clk = 0; tick = 0; hist = [];
+      sim.input('clk', 0);
+      for (const s of switches()) sim.input(s, swState[s] || 0);
+      rstTicks = 3; clrTicks = 3; applyResets();
+    } catch (e) { fail(e); return; }
+    const n = sim.chipCount;
+    showMsgs([{ kind: 'ok', msg: `${n} chip${n === 1 ? '' : 's'} wired. The console is on: focus it and use the keys below.` }]
+      .concat(r.warnings.map(x => ({ kind: 'warn', msg: x.msg, line: x.line }))));
+    $('chipc').textContent = n + ' chips';
+    setFace(true); populateNets(); watch = watch.filter(w => sim.netNames().includes(w)); renderWatch();
+    running = true; $('run').textContent = 'Pause';
+    paint(); $('console').focus({ preventScroll: true });
+  }
+  function fail(e) {
+    running = false; $('run').textContent = 'Run';
+    showMsgs([{ kind: 'err', msg: e.message }]); setFace(false, 'Stopped: ' + e.message); sim = null;
+  }
+
+  // ---------- console face ----------
+  const swState = {};
+  const switches = () => GAMES[game].face.rows.flat().filter(x => x.sw).map(x => x.sw);
+  const SEGP = { a: '14,6 50,6 44,12 20,12', b: '52,8 52,48 46,44 46,14', c: '52,56 52,96 46,90 46,60', d: '14,98 50,98 44,92 20,92', e: '12,56 12,96 18,90 18,60', f: '12,8 12,48 18,44 18,14', g: '14,52 20,47 44,47 50,52 44,57 20,57' };
+  function makeFace() {
+    const face = $('face'); face.innerHTML = '';
+    const G = GAMES[game];
+    for (const row of G.face.rows) {
+      const r = document.createElement('div'); r.className = 'row';
+      for (const it of row) {
+        if (it.led) {
+          const d = document.createElement('div'); d.className = 'led' + (it.target ? ' target' : ''); d.dataset.port = it.led;
+          d.style.setProperty('--c', `var(--led-${it.color})`); d.innerHTML = `<i></i>${it.label}`; r.appendChild(d);
+        } else if (it.digit !== undefined) {
+          const d = document.createElement('div'); d.className = 'digit'; d.dataset.suffix = it.digit; d.dataset.prefix = it.pre || '';
+          d.innerHTML = `<svg viewBox="0 0 64 104" aria-hidden="true">${Object.entries(SEGP).map(([k, p]) => `<polygon class="s" data-seg="${k}" points="${p}"/>`).join('')}</svg>${it.label}`;
+          r.appendChild(d);
+        } else if (it.sw) {
+          const d = document.createElement('div'); d.className = 'ctl';
+          const b = document.createElement('button'); b.className = 'switch' + (swState[it.sw] ? ' on' : ''); b.dataset.sw = it.sw;
+          b.setAttribute('aria-pressed', swState[it.sw] ? 'true' : 'false'); b.setAttribute('aria-label', it.sw + ' switch, key ' + it.key);
+          b.innerHTML = `<small>${it.key}</small>`; b.addEventListener('click', () => toggleSw(it.sw));
+          d.appendChild(b); d.append(it.sw); r.appendChild(d);
+        } else if (it.btn) {
+          const d = document.createElement('div'); d.className = 'ctl';
+          const b = document.createElement('button'); b.className = 'key'; b.dataset.btn = it.btn; b.textContent = it.cap; b.setAttribute('aria-label', it.label + ' (' + it.cap + ')');
+          b.addEventListener('pointerdown', (e) => { e.preventDefault(); b.setPointerCapture(e.pointerId); press(it.btn, true); });
+          const up = () => press(it.btn, false); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+          b.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) press(it.btn, true); } });
+          b.addEventListener('keyup', (e) => { if (e.key === 'Enter') press(it.btn, false); });
+          d.appendChild(b); d.append(it.label); r.appendChild(d);
+        }
+      }
+      face.appendChild(r);
+    }
+    const hint = $('keyshint'); hint.innerHTML = '';
+    const items = G.face.rows.flat().filter(x => x.btn || x.sw).map(x => x.btn ? [x.cap, x.label] : [x.key, 'switch ' + x.sw]);
+    items.push(['R', 'new round'].concat([]));
+    if (G.ins.includes('clr_n')) items.push(['C', 'clear all']);
+    items.push(['P', 'pause / run'], ['.', 'step']);
+    for (const [k, l] of items) { const s = document.createElement('span'); s.innerHTML = `<kbd></kbd> `; s.firstChild.textContent = k; s.append(l); hint.appendChild(s); }
+  }
+  function setFace(on, msg) { const f = $('face'); f.classList.toggle('off', !on); if (msg) f.dataset.msg = msg; if (!on) paint(); }
+  function toggleSw(s) {
+    swState[s] = swState[s] ? 0 : 1;
+    const b = document.querySelector(`.switch[data-sw="${s}"]`); if (b) { b.classList.toggle('on', !!swState[s]); b.setAttribute('aria-pressed', swState[s] ? 'true' : 'false'); }
+    if (sim) { try { sim.input(s, swState[s]); } catch (e) { fail(e); } paint(); }
+  }
+  function press(port, down) {
+    const b = document.querySelector(`.key[data-btn="${port}"]`); if (b) b.classList.toggle('down', down);
+    held[port] = down;
+    if (down) latched[port] = true;
+    if (!sim) return;
+    try { if (down) sim.input(port, 1); else if (!latched[port]) sim.input(port, 0); } catch (e) { fail(e); }
+    paint();
+  }
+
+  // ---------- clock ----------
+  function halfTick() {
+    clk = 1 - clk;
+    if (clk === 1) applyResets();
+    sim.input('clk', clk);
+    if (clk === 1) {
+      tick++; if (rstTicks > 0) rstTicks--; if (clrTicks > 0) clrTicks--;
+      for (const p of Object.keys(latched)) if (latched[p]) { latched[p] = false; if (!held[p]) sim.input(p, 0); }
+    } else applyResets();
+    record();
+  }
+  // R holds rst_n low; C holds clr_n and rst_n low. Each lasts at least 3 ticks.
+  function applyResets() {
+    if (!sim) return;
+    const clr = clrTicks > 0 || cHeld;
+    sim.input('rst_n', (rstTicks > 0 || rHeld || clr) ? 0 : 1);
+    if (hasClr()) sim.input('clr_n', clr ? 0 : 1);
+  }
+  function holdReset(which, down) {
+    if (which === 'r') { rHeld = down; if (down) rstTicks = Math.max(rstTicks, 3); }
+    else { cHeld = down; if (down) clrTicks = Math.max(clrTicks, 3); }
+    if (down && sim) { try { applyResets(); } catch (e) { fail(e); } paint(); }
+  }
+  function fullTick() { try { halfTick(); halfTick(); } catch (e) { fail(e); } paint(); }
+  function loop(t) {
+    if (last) {
+      const dt = Math.min(0.25, (t - last) / 1000);
+      if (sim && running) {
+        acc += dt * hz * 2; let n = 0;
+        try { while (acc >= 1 && n < 200) { halfTick(); acc -= 1; n++; } } catch (e) { fail(e); }
+        if (n) paint();
+      } else acc = 0;
+    }
+    last = t; requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+  $('run').addEventListener('click', () => { running = !running; $('run').textContent = running ? 'Pause' : 'Run'; });
+  $('step').addEventListener('click', () => { if (!sim) return; running = false; $('run').textContent = 'Run'; fullTick(); });
+  [['rst', 'r'], ['clr', 'c']].forEach(([id, w]) => {
+    const el = $(id);
+    el.addEventListener('pointerdown', () => holdReset(w, true));
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => el.addEventListener(ev, () => holdReset(w, false)));
+  });
+  $('hz').addEventListener('input', (e) => { hz = +e.target.value; $('hzv').textContent = hz + ' Hz'; });
+
+  document.addEventListener('keydown', (e) => {
+    const t = e.target; if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || !game) return;
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    const G = GAMES[game]; const items = G.face.rows.flat();
+    const btn = items.find(x => x.btn && x.key === k), sw = items.find(x => x.sw && x.key === k);
+    if (btn) { e.preventDefault(); if (!e.repeat) press(btn.btn, true); return; }
+    if (sw) { e.preventDefault(); if (!e.repeat) toggleSw(sw.sw); return; }
+    if (k === 'r' || (k === 'c' && hasClr())) { e.preventDefault(); if (!e.repeat) holdReset(k, true); return; }
+    if (k === 'p') { e.preventDefault(); $('run').click(); return; }
+    if (k === '.') { e.preventDefault(); $('step').click(); return; }
+  });
+  document.addEventListener('keyup', (e) => {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; if (!game) return;
+    const btn = GAMES[game].face.rows.flat().find(x => x.btn && x.key === k);
+    if (btn) press(btn.btn, false);
+    if (k === 'r' || k === 'c') holdReset(k, false);
+  });
+  window.addEventListener('blur', () => { for (const p of Object.keys(held)) if (held[p]) press(p, false); rHeld = false; cHeld = false; });
+
+  // ---------- paint ----------
+  function paint() {
+    $('clkled').classList.toggle('on', !!clk); $('tickc').textContent = 'tick ' + tick;
+    document.querySelectorAll('#face .led').forEach(d => d.classList.toggle('on', !!(sim && sim.output(d.dataset.port))));
+    document.querySelectorAll('#face .digit').forEach(d => {
+      const s = d.dataset.suffix, pf = d.dataset.prefix;
+      d.querySelectorAll('.s').forEach(p => p.classList.toggle('on', !!(sim && sim.output(pf + p.dataset.seg + s) === 0)));
+    });
+    drawWave();
+  }
+
+  // ---------- probes ----------
+  function populateNets() {
+    const sel = $('netpick'); sel.innerHTML = '';
+    if (!sim) { sel.innerHTML = '<option value="">Build first</option>'; return; }
+    const names = [...new Set(sim.netNames())].filter(n => !/^1'b/.test(n)).sort((a, b) => a.split('.').length - b.split('.').length || a.localeCompare(b, undefined, { numeric: true }));
+    for (const n of names) { const o = document.createElement('option'); o.value = o.textContent = n; sel.appendChild(o); }
+  }
+  $('addw').addEventListener('click', () => { const v = $('netpick').value; if (v && !watch.includes(v) && watch.length < 10) { watch.push(v); renderWatch(); drawWave(); } });
+  function renderWatch() {
+    const box = $('wlist'); box.innerHTML = '';
+    watch.forEach(w => { const c = document.createElement('span'); c.className = 'chipx'; c.textContent = w; const x = document.createElement('button'); x.textContent = '×'; x.setAttribute('aria-label', 'Stop watching ' + w); x.addEventListener('click', () => { watch = watch.filter(y => y !== w); renderWatch(); drawWave(); }); c.appendChild(x); box.appendChild(c); });
+    store.set('ttl-watch-' + game, JSON.stringify(watch));
+  }
+  function record() {
+    if (!sim) return;
+    const idx = new Map(sim.netNames().map((n, k) => [n, k]));
+    const row = { clk }; for (const w of watch) row[w] = idx.has(w) ? sim.v[idx.get(w)] : 0;
+    hist.push(row); if (hist.length > 48) hist.shift();
+  }
+  function drawWave() {
+    const cv = $('wave'), box = cv.parentElement; const rows = ['clk'].concat(watch);
+    const W = Math.max(box.clientWidth, 360), H = rows.length * 26 + 10, dpr = window.devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    const cs = getComputedStyle(document.documentElement);
+    const ink = cs.getPropertyValue('--ink').trim(), muted = cs.getPropertyValue('--muted').trim(), acc = cs.getPropertyValue('--accent').trim(), rule = cs.getPropertyValue('--rule').trim();
+    ctx.font = '12px ' + cs.getPropertyValue('--f-mono'); const labW = Math.min(150, 12 + Math.max(...rows.map(r => ctx.measureText(r).width)));
+    const step = (W - labW - 8) / 48;
+    rows.forEach((r, k) => {
+      const y0 = 8 + k * 26, hi = y0 + 4, lo = y0 + 20;
+      ctx.fillStyle = muted; ctx.textBaseline = 'middle'; ctx.fillText(r, 4, y0 + 12);
+      ctx.strokeStyle = rule; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(labW, lo + 3); ctx.lineTo(W - 4, lo + 3); ctx.stroke();
+      ctx.strokeStyle = r === 'clk' ? muted : (k % 2 ? acc : ink); ctx.lineWidth = 1.6; ctx.beginPath();
+      const off = 48 - hist.length; let prev = null;
+      hist.forEach((h, j) => { const x = labW + (off + j) * step, y = h[r] ? hi : lo; if (prev === null) ctx.moveTo(x, y); else ctx.lineTo(x, y); ctx.lineTo(x + step, y); prev = y; });
+      ctx.stroke();
+    });
+  }
+  window.addEventListener('resize', drawWave);
+
+  // ---------- rules / ports / library ----------
+  function renderInfo() {
+    const G = GAMES[game];
+    $('rules').innerHTML = ''; G.rules.forEach(t => { const li = document.createElement('li'); li.textContent = t; $('rules').appendChild(li); });
+    const keyOf = (p) => { const it = G.face.rows.flat().find(x => x.btn === p || x.sw === p); return it ? (it.cap || it.key) : ''; };
+    const rows = [];
+    for (const p of G.ins) {
+      const d = p === 'clk' ? 'Clock from the page' : p === 'rst_n' ? 'Round reset, active low (0 while R or C is held)' : p === 'clr_n' ? 'Clear all, active low (0 while C is held)' : (G.desc[p] || '');
+      rows.push([p, 'input', d, p === 'rst_n' ? 'R' : p === 'clr_n' ? 'C' : keyOf(p)]);
+    }
+    const segGroups = {};
+    const ledsL = G.outs.filter(p => /^L\d$/.test(p));
+    if (ledsL.length) rows.push([ledsL[0] + '…' + ledsL[ledsL.length - 1], 'output', 'Row of LEDs, ' + ledsL[0] + ' on the left', '']);
+    for (const p of G.outs) { const m = /^([bm]?)([a-g])(\d?)$/.exec(p); if (m) { (segGroups[m[1] + '|' + m[3]] = segGroups[m[1] + '|' + m[3]] || []).push(p); continue; } if (/^L\d$/.test(p)) continue; rows.push([p, 'output', G.desc[p] || '', '']); }
+    for (const [k, list] of Object.entries(segGroups)) rows.push([list[0] + '…' + list[list.length - 1], 'output', k !== '|' ? (G.desc[list[0]] || '') : 'Display segments a–g, active low', '']);
+    const tb = $('ports'); tb.innerHTML = '<thead><tr><th>Port</th><th>Dir</th><th>Meaning</th><th>Key</th></tr></thead>';
+    const body = document.createElement('tbody');
+    for (const r of rows) { const tr = document.createElement('tr'); r.forEach((c, j) => { const td = document.createElement('td'); if (j === 0) { const cc = document.createElement('code'); cc.textContent = c; td.appendChild(cc); } else if (j === 3 && c) { const kb = document.createElement('kbd'); kb.textContent = c; td.appendChild(kb); } else td.textContent = c; tr.appendChild(td); }); body.appendChild(tr); }
+    tb.appendChild(body);
+  }
+  function renderLib() {
+    const box = $('chiplist');
+    for (const [name, d] of Object.entries(E.CHIPS)) {
+      const det = document.createElement('details'); det.className = 'chip';
+      det.innerHTML = `<summary><b></b><span></span></summary><div class="pinlist"><div><em>inputs </em><span class="i"></span></div><div><em>outputs </em><span class="o"></span></div></div>`;
+      det.querySelector('b').textContent = name; det.querySelector('summary span').textContent = d.desc;
+      det.querySelector('.i').textContent = d.ins.join(', '); det.querySelector('.o').textContent = d.outs.join(', ');
+      box.appendChild(det);
+    }
+    $('chipsv').textContent = CHIPS_V;
+    $('copychips').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(CHIPS_V); $('copychips').textContent = 'Copied'; }
+      catch (e) { const det = $('chipsv').parentElement; det.open = true; const r = document.createRange(); r.selectNodeContents($('chipsv')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copychips').textContent = 'Selected: press Ctrl+C'; }
+      setTimeout(() => { $('copychips').textContent = 'Copy chips.v'; }, 2500);
+    });
+  }
+
+  // ---------- select game ----------
+  function select(g) {
+    game = g; sim = null; hist = [];
+    document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.id === 'tab-' + g ? 'true' : 'false'));
+    const G = GAMES[g];
+    $('c-title').textContent = G.label;
+    hz = G.hz; $('hz').value = hz; $('hzv').textContent = hz + ' Hz';
+    for (const k of Object.keys(swState)) delete swState[k];
+    code.value = SRC[g] || template(g); errLines = new Set(); renderGutter(); code.scrollTop = 0;
+    try { watch = JSON.parse(store.get('ttl-watch-' + g) || '[]'); } catch (e) { watch = []; }
+    $('clr').hidden = !G.ins.includes('clr_n');
+    renderWatch(); makeFace(); renderInfo(); $('chipc').textContent = '';
+    showMsgs([]); setFace(false, 'Build your circuit to switch the console on.'); populateNets();
+    if (/ic\d/.test(code.value)) build();
+  }
+
+  renderLib();
+  const SRC = {}, want = new URLSearchParams(location.search).get('game');
+  Promise.all(ORDER.map(g => fetch('src/' + g + '.v').then(r => r.ok ? r.text() : '').then(t => { SRC[g] = t; }, () => {})))
+    .then(() => select(ORDER.includes(want) ? want : 'stoplight'));
+})();
+</script>
+
+</body></html>
